@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'dart:async'; // Timerクラスを使用するために必要なimport文
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
@@ -36,7 +37,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Flutter Demo',
       theme: ThemeData(
-        primarySwatch: Colors.blue,
+        primarySwatch: Colors.green,
       ),
       home: const MyHomePage(title: 'Flutter Demo Home Page'),
     );
@@ -53,28 +54,47 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+  bool isSwitched = false; // スイッチの初期状態をオフに設定
+  int notificationInterval = 10; // 通知の間隔（秒単位）
+  Timer? notificationTimer; // 通知を表示するためのタイマー
 
-  void _incrementCounter() {
-    setState(() {
-      _counter++;
-      _showNotification();
-    });
+  @override
+  void initState() {
+    super.initState();
+    // スイッチの初期状態がオンの場合、関数を実行
+    if (isSwitched) {
+      _startNotifications();
+    }
   }
 
-  // iosの通知用のメソッド
-  Future<void> _showNotification() async {
+  void _startNotifications() {
+    if (isSwitched) {
+      notificationTimer =
+          Timer.periodic(Duration(seconds: notificationInterval), (timer) {
+        // 通知を表示する関数
+        _showNotificationPeriodically();
+      });
+    }
+  }
+
+  // ios用の通知を呼び出すメソッド
+  Future<void> _showNotificationPeriodically() async {
     const DarwinNotificationDetails iOSPlatformChannelSpecifics =
         DarwinNotificationDetails();
     const NotificationDetails platformChannelSpecifics =
         NotificationDetails(iOS: iOSPlatformChannelSpecifics);
     await flutterLocalNotificationsPlugin.show(
       0,
-      'plain title',
-      'plain body',
+      '通知タイトル',
+      '通知の内容',
       platformChannelSpecifics,
-      payload: 'item x',
+      payload: '通知のペイロード',
     );
+  }
+
+  // 定期的に呼び出していた通知をキャンセルするメソッド
+  Future<void> _cancelNotification() async {
+    await flutterLocalNotificationsPlugin.cancel(0);
   }
 
   @override
@@ -87,20 +107,23 @@ class _MyHomePageState extends State<MyHomePage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            const Text(
-              'You have pushed the button this many times!!',
-            ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+            Switch(
+              value: isSwitched,
+              onChanged: (bool value) {
+                setState(() {
+                  isSwitched = value;
+                  // スイッチがオンになったら関数を実行
+                  if (isSwitched) {
+                    _startNotifications();
+                  } else {
+                    notificationTimer?.cancel();
+                    _cancelNotification();
+                  }
+                });
+              },
             ),
           ],
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
       ),
     );
   }
